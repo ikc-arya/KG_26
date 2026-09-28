@@ -4,42 +4,42 @@
   {
    "key": "popularity",
    "label": "Popularity",
-   "desc": "Baseline: most-watched first, the same list for everyone.",
+   "desc": "Most-watched first, the same for everyone",
    "kind": "pop",
    "dim": 0
   },
   {
    "key": "lightgcn_k0",
    "label": "MF",
-   "desc": "Matrix factorisation (LightGCN with 0 layers): one vector per user and per anime.",
+   "desc": "Matrix factorisation: one vector per user and per anime",
    "kind": "dot",
    "dim": 64
   },
   {
    "key": "lightgcn_k3",
    "label": "LightGCN",
-   "desc": "GNN: 3 layers of neighbour averaging over the user\u2013anime graph.",
+   "desc": "Graph neural network over who watched what",
    "kind": "dot",
    "dim": 64
   },
   {
    "key": "lightgcn_k3_content",
    "label": "LightGCN + KG",
-   "desc": "GNN over the user\u2013anime graph plus the KG's genre, studio and other content edges.",
+   "desc": "GNN that also sees the KG's genres, studios and other links",
    "kind": "dot",
    "dim": 64
   },
   {
    "key": "distmult",
    "label": "DistMult",
-   "desc": "KG embedding: score = user \u00b7 rated \u00b7 anime (element-wise).",
+   "desc": "KG embedding: user \u00d7 rated \u00d7 anime",
    "kind": "dot",
    "dim": 128
   },
   {
    "key": "transe",
    "label": "TransE",
-   "desc": "KG embedding: user + rated should land near the anime.",
+   "desc": "KG embedding: user + rated lands near the anime",
    "kind": "l2",
    "dim": 128
   }

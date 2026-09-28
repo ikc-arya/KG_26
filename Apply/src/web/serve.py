@@ -32,8 +32,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self._send(str(PAGE.stat().st_mtime_ns).encode(), "text/plain")
         if path in ("/", "/index.html"):
             return self._send(PAGE.read_bytes().replace(b"</body>", RELOAD + b"</body>"), "text/html; charset=utf-8")
-        if path.count("/") == 1 and (WEB / path[1:]).is_file() and path.endswith((".jpg", ".png", ".webp")):
-            ctype = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[path.rsplit(".", 1)[1]]
+        if path.count("/") == 1 and (WEB / path[1:]).is_file() and path.endswith((".jpg", ".png", ".webp", ".svg")):
+            ctype = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp", "svg": "image/svg+xml"}[path.rsplit(".", 1)[1]]
             return self._send((WEB / path[1:]).read_bytes(), ctype)  # page assets (bg image) live here
         super().do_GET()
 

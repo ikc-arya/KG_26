@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-60 -60 120 120" width="120" height="120" role="img" aria-label="Aninext">
+  <!-- Aninext logo. Standalone so the web page, its favicon and the repo README share one file.
+       The tomoe spin with a CSS animation, which also plays when GitHub shows the SVG as an image. -->
+  <style>
+    .spin { transform-box: fill-box; transform-origin: center; animation: spin 16s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  </style>
+  <defs>
+    <radialGradient id="iris" r="0.6">
+      <stop offset="0" stop-color="#ff3b5c"/><stop offset=".7" stop-color="#d10f28"/><stop offset="1" stop-color="#8e0716"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter>
+    <g id="tomoe"><circle cx="0" cy="-27" r="6.2"/><path d="M0,-33.2 Q15,-33 17.5,-19 Q10,-25.5 0,-20.8 Z"/></g>
+  </defs>
+  <circle r="50" fill="#e3122d" opacity=".5" filter="url(#glow)"/>
+  <circle r="48" fill="#0b0406"/>
+  <circle r="44" fill="url(#iris)"/>
+  <circle r="27" fill="none" stroke="#0b0406" stroke-opacity=".55" stroke-width="1.6"/>
+  <g class="spin" fill="#0b0406">
+    <circle r="40" fill="none"/> <!-- symmetric bounding box: the group rotates about the centre -->
+    <use href="#tomoe"/><use href="#tomoe" transform="rotate(120)"/><use href="#tomoe" transform="rotate(240)"/>
+  </g>
+  <circle r="9.5" fill="#0b0406"/>
+</svg>

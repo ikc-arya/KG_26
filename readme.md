@@ -1,4 +1,14 @@
-# KG_26 — Knowledge Graphs on anime data
+<p align="center">
+  <img src="Apply/src/web/sharingan.svg" width="110" alt="Aninext logo">
+</p>
+
+<h1 align="center">KG_26 — Knowledge Graphs on anime data</h1>
+
+<p align="center"><b><a href="https://ikc-arya.github.io/KG_26/">Aninext</a></b>: the recommender as a web page. Pick anime you liked, tune genres and themes, compare six models. It all runs in your browser.</p>
+
+<p align="center">
+  <a href="https://ikc-arya.github.io/KG_26/"><img src="web_sample.png" alt="Aninext web UI" width="900"></a>
+</p>
 
 Build a knowledge graph from MyAnimeList data (ontology → RDF triples), embed it (DistMult, TransE), run a GNN on it (LightGCN), and study how the embeddings react when the graph evolves. The downstream task is anime recommendation, framed as link prediction on `user → rated → anime` edges. Everything is hand-written on rdflib / plain PyTorch so each step stays inspectable.
 

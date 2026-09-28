@@ -50,12 +50,12 @@ DEFAULT = "lightgcn_k3"
 
 # key (= checkpoint / results name), label, one-line description shown in the UI
 MODELS = [
-    ("popularity", "Popularity", "Baseline: most-watched first, the same list for everyone."),
-    ("lightgcn_k0", "MF", "Matrix factorisation (LightGCN with 0 layers): one vector per user and per anime."),
-    ("lightgcn_k3", "LightGCN", "GNN: 3 layers of neighbour averaging over the user–anime graph."),
-    ("lightgcn_k3_content", "LightGCN + KG", "GNN over the user–anime graph plus the KG's genre, studio and other content edges."),
-    ("distmult", "DistMult", "KG embedding: score = user · rated · anime (element-wise)."),
-    ("transe", "TransE", "KG embedding: user + rated should land near the anime."),
+    ("popularity", "Popularity", "Most-watched first, the same for everyone"),
+    ("lightgcn_k0", "MF", "Matrix factorisation: one vector per user and per anime"),
+    ("lightgcn_k3", "LightGCN", "Graph neural network over who watched what"),
+    ("lightgcn_k3_content", "LightGCN + KG", "GNN that also sees the KG's genres, studios and other links"),
+    ("distmult", "DistMult", "KG embedding: user × rated × anime"),
+    ("transe", "TransE", "KG embedding: user + rated lands near the anime"),
 ]
 
 # the two README examples: (user, liked, prefer, avoid, boost)
@@ -65,7 +65,7 @@ EXAMPLES = [("user_66835", None, ["Romance", "Comedy"], ["Hentai"], 1.0),
 
 def copy_page() -> None:
     DOCS.mkdir(exist_ok=True)
-    for f in [WEB / "index.html", *WEB.glob("bg.*")]:  # the page + its background image
+    for f in [WEB / "index.html", *WEB.glob("bg.*"), *WEB.glob("*.svg")]:  # page + background + logo
         shutil.copy(f, DOCS / f.name)
     (DOCS / ".nojekyll").touch()  # serve files as-is, no Jekyll build
 

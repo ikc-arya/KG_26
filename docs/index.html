@@ -6,6 +6,7 @@
 <title>Aninext</title>
 <meta name="description" content="Anime recommendations from watch history (LightGCN, MF, DistMult, TransE, popularity) tuned by your stated preferences (knowledge graph). All scoring runs in your browser.">
 <meta name="color-scheme" content="dark">
+<link rel="icon" href="sharingan.svg" type="image/svg+xml">
 <style>
   :root {
     --bg: #07030a; /* near the image's black, so its edges disappear */
@@ -77,9 +78,8 @@
     background: linear-gradient(90deg, var(--red), var(--pink)); -webkit-background-clip: text; background-clip: text;
     color: transparent; text-shadow: none; filter: drop-shadow(0 2px 14px rgba(255, 45, 111, .35));
   }
-  .eye { display: block; width: 60px; height: 60px; margin-bottom: 12px; filter: drop-shadow(0 0 14px rgba(227, 18, 45, .55)); }
-  .sub { margin: 4px 0 0; color: var(--muted); }
-  .tagline { margin: 18px 0 0; font-size: 20px; font-weight: 500; letter-spacing: -.01em; color: var(--hi); }
+  .eye { display: block; width: 76px; height: 76px; margin: -8px 0 4px -8px; } /* the SVG carries its own glow margin */
+  .tagline { margin: 8px 0 0; font-size: 20px; font-weight: 500; letter-spacing: -.01em; color: var(--hi); }
   .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
   .examples small { color: var(--faint); margin-right: 2px; }
   .ex {
@@ -128,25 +128,75 @@
   .chip button { background: none; border: 0; color: var(--faint); cursor: pointer; padding: 0 4px; font-size: 15px; line-height: 1; }
   .chip button:hover { color: var(--text); }
 
-  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .tag {
-    background: none; border: 1px solid var(--border); border-radius: 999px; padding: 3px 11px;
-    font-size: 13px; color: var(--muted); cursor: pointer; transition: border-color .12s, color .12s, background .12s;
+  /* preference wheels: rows snap into the centre band; the row above and below stay visible, blurred */
+  .wheels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .wheel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .wheel-head span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  .wheel-head small { color: var(--faint); font-size: 12px; white-space: nowrap; }
+  /* a soft-edged well; the centre band is a raised rounded box floating above it, behind the list */
+  .wheel-frame {
+    --row: 38px; /* keep in sync with ROW in the script */
+    position: relative; border-radius: 14px; background: var(--field);
+    box-shadow: 0 0 14px 6px var(--field); /* same colour as the fill: a soft, blurred edge, no line */
   }
-  .tag:hover { color: var(--text); border-color: var(--muted); }
-  .tag[data-state="prefer"], .tag[aria-pressed="true"] { background: var(--hi-soft); border-color: var(--hi); color: var(--hi); }
-  .tag[data-state="prefer"]::before {
-    content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent); margin-right: 7px; vertical-align: 2px;
+  .wheel-frame::before {
+    content: ""; position: absolute; left: 5px; right: 5px; top: var(--row); height: var(--row); pointer-events: none;
+    border-radius: 10px; background: rgba(255, 255, 255, .075); border: 1px solid rgba(255, 150, 215, .22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 8px 22px rgba(0, 0, 0, .5), 0 0 20px -6px var(--pink-glow);
   }
-  .tag[data-state="avoid"] { background: var(--avoid-soft); border: 1px dashed var(--avoid); color: var(--avoid); text-decoration: line-through; }
-  details { margin-top: 10px; }
-  summary { color: var(--muted); cursor: pointer; font-size: 13px; margin-bottom: 8px; }
-  .grp { color: var(--faint); font-size: 12px; margin: 12px 0 6px; }
-
+  .wheel {
+    position: relative; z-index: 1; height: calc(var(--row) * 3); overflow-y: auto; outline: none; border-radius: 12px;
+    scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, .55), #000 34%, #000 66%, rgba(0, 0, 0, .55));
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, .55), #000 34%, #000 66%, rgba(0, 0, 0, .55));
+  }
+  .wheel::-webkit-scrollbar { display: none; }
+  .wheel:focus-visible { box-shadow: 0 0 0 1px var(--accent); }
+  .wheel ul { list-style: none; margin: 0; padding: var(--row) 0; }
+  .wheel li {
+    height: var(--row); display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 10px;
+    scroll-snap-align: center; cursor: pointer; user-select: none; -webkit-user-select: none;
+    color: var(--muted); white-space: nowrap; filter: blur(0.9px); opacity: .62;
+    transition: filter .15s, opacity .15s, color .15s;
+  }
+  .wheel li span { overflow: hidden; text-overflow: ellipsis; }
+  /* horizontal variant (model): same well + raised band, items side by side, 3 in view */
+  .wheel-frame.h { --item: 160px; /* keep in sync with ITEM in the script */ max-width: calc(var(--item) * 3); }
+  .wheel-frame.h::before { top: 0; left: calc(50% - var(--item) / 2 + 4px); right: auto; width: calc(var(--item) - 8px); }
+  .wheel.h {
+    height: var(--row); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
+    -webkit-mask-image: linear-gradient(90deg, rgba(0, 0, 0, .55), #000 34%, #000 66%, rgba(0, 0, 0, .55));
+    mask-image: linear-gradient(90deg, rgba(0, 0, 0, .55), #000 34%, #000 66%, rgba(0, 0, 0, .55));
+  }
+  .wheel.h ul { display: flex; width: max-content; padding: 0 calc(50% - var(--item) / 2); }
+  .wheel.h li { flex: 0 0 var(--item); }
+  .wheel li.c { filter: none; opacity: 1; color: var(--text); }
+  .wheel.h li.c { color: var(--hi); font-weight: 500; }
+  .wheel li[data-state="prefer"] { color: var(--hi); font-weight: 500; }
+  .wheel li[data-state="prefer"]::before, .chip.p::before {
+    content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  }
+  .wheel li[data-state="avoid"] { color: var(--avoid); text-decoration: line-through; }
+  .picked { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .picked:empty { display: none; }
+  .chip.a { color: var(--avoid); border-style: dashed; text-decoration: line-through; }
   .controls { display: grid; grid-template-columns: 1fr auto; gap: 16px 28px; align-items: end; margin-top: 4px; }
   .slider { display: flex; align-items: center; gap: 12px; }
-  .slider input { flex: 1; accent-color: var(--accent); }
+  .slider input {
+    flex: 1; height: 4px; margin: 0; border: 0; border-radius: 999px; outline: none; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+    background: linear-gradient(90deg, var(--accent) var(--p, 33%), rgba(255, 255, 255, .12) var(--p, 33%));
+  }
+  .slider input::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px; border: 0; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(255, 45, 111, .18), 0 0 14px rgba(255, 45, 111, .6);
+  }
+  .slider input::-moz-range-thumb {
+    width: 16px; height: 16px; border: 0; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(255, 45, 111, .18), 0 0 14px rgba(255, 45, 111, .6);
+  }
+  .slider input::-moz-range-track { background: transparent; border: 0; }
+  .slider input:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(255, 255, 255, .35), 0 0 14px rgba(255, 45, 111, .6); }
   .slider output { min-width: 3ch; font-variant-numeric: tabular-nums; color: var(--text); }
 
   .summary { margin: 28px 0 12px; color: var(--muted); font-size: 14px; min-height: 21px; }
@@ -176,6 +226,8 @@
   @media (max-width: 720px) {
     .wrap { padding-top: 28px; }
     .cols, .controls { grid-template-columns: 1fr; }
+    .wheels { grid-template-columns: 1fr 1fr; gap: 16px 12px; }
+    .wheels > :last-child { grid-column: span 2; }
   }
 </style>
 </head>
@@ -183,24 +235,8 @@
 <div class="bg" aria-hidden="true"><div class="bg-img" id="bgImg"></div></div>
 <div class="wrap">
   <header>
-    <svg class="eye" viewBox="-50 -50 100 100" aria-hidden="true">
-      <defs>
-        <radialGradient id="iris" r="0.6">
-          <stop offset="0" stop-color="#ff3b5c"/><stop offset=".7" stop-color="#d10f28"/><stop offset="1" stop-color="#8e0716"/>
-        </radialGradient>
-        <g id="tomoe"><circle cx="0" cy="-27" r="6.2"/><path d="M0,-33.2 Q15,-33 17.5,-19 Q10,-25.5 0,-20.8 Z"/></g>
-      </defs>
-      <circle r="48" fill="#0b0406"/>
-      <circle r="44" fill="url(#iris)"/>
-      <circle r="27" fill="none" stroke="#0b0406" stroke-opacity=".55" stroke-width="1.6"/>
-      <g fill="#0b0406">
-        <use href="#tomoe"/><use href="#tomoe" transform="rotate(120)"/><use href="#tomoe" transform="rotate(240)"/>
-        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="16s" repeatCount="indefinite"/>
-      </g>
-      <circle r="9.5" fill="#0b0406"/>
-    </svg>
+    <img class="eye" src="sharingan.svg" alt="">
     <h1>Ani<span>next</span></h1>
-    <p class="sub">What to watch next: your watch history, scored by a model trained on the knowledge graph, tuned by what you say you like.</p>
     <p class="tagline">Let's find your matches 😉 ...</p>
     <div class="examples" id="examples"><small>Try</small></div>
   </header>
@@ -212,14 +248,14 @@
       <button type="button" class="btn" id="randomUser">Random user</button>
     </div>
     <div class="chips" id="liked"></div>
-    <p class="hint" id="whoHint"></p>
 
     <div class="label">Model</div>
-    <div class="tags" id="models"></div>
-    <p class="hint" id="modelHint"></p>
+    <div id="modelWheel"></div>
+    <p class="hint" id="hint"></p>
 
-    <div class="label">Preferences <span class="hint" style="text-transform:none;letter-spacing:0">· click once to prefer, twice to avoid</span></div>
-    <div id="tagGroups"></div>
+    <div class="label">Preferences</div>
+    <div class="wheels" id="wheels"></div>
+    <div class="picked" id="picked"></div>
 
     <div class="controls">
       <div>
@@ -385,16 +421,13 @@ function render() {
     base.replaceChildren(el("p", { className: "empty", textContent: msg }));
     tuned.replaceChildren();
     $("summary").textContent = "";
-    $("whoHint").textContent = "";
+    $("hint").textContent = model.desc;
     return;
   }
   base.replaceChildren(...R.base.map((i, p) => item(i, R, false, p + 1)));
   tuned.replaceChildren(...R.tuned.map((i, p) => item(i, R, true, p + 1)));
-  $("whoHint").textContent = S.mode === "user"
-    ? `${R.nKnown} anime already in this user's history. They are never recommended.`
-    : model.kind === "pop" ? "Popularity ignores who you are. Your titles are only hidden from the list."
-    : S.model.startsWith("lightgcn") ? "Your vector is the mean of these anime's embeddings. That's LightGCN's own propagation rule, so no retraining is needed."
-    : "Your query is the mean of these anime's vectors, the point that scores them highest. No retraining needed.";
+  const n = S.mode === "user" ? `${S.user}'s ${R.nKnown} watched anime` : `the ${S.liked.length} anime you picked`;
+  $("hint").textContent = `${model.desc} · ` + (model.kind === "pop" ? `ignores ${n}, only hides them` : `based on ${n}, never shown again`);
   const share = (list, m) => Math.round(100 * list.filter((i) => m[i]).length / list.length) + "%";
   const parts = [];
   if (R.prefer.size) parts.push(`Preferred tags in the top ${S.k}: <b>${share(R.base, R.pref)}</b> → <b>${share(R.tuned, R.pref)}</b>`);
@@ -487,38 +520,114 @@ function renderLiked() {
     : S.liked.map((i) => chip(D.anime[i].title, () => { S.liked = S.liked.filter((j) => j !== i); renderLiked(); render(); }))));
 }
 
-function renderTags() {
-  const groups = { Genre: [], Demographic: [], Theme: [] };
-  D.vocab.forEach((v, t) => groups[v.class].push(t));
-  const btn = (t) => {
-    const b = el("button", { type: "button", className: "tag", textContent: D.vocab[t].label });
-    b.dataset.state = S.tag.get(t) || "";
-    b.addEventListener("click", () => {
-      const next = { "": "prefer", prefer: "avoid", avoid: "" }[S.tag.get(t) || ""];
-      next ? S.tag.set(t, next) : S.tag.delete(t);
-      b.dataset.state = next;
-      render();
-    });
-    return b;
+// ---------- picker wheels
+const ROW = 38;   // px per row, = --row in the CSS
+const ITEM = 160; // px per item in a horizontal wheel, = --item in the CSS
+const cycle = { "": "prefer", prefer: "avoid", avoid: "" };
+
+// a snap-scrolling list. Default: vertical, scrolling browses and tapping a row toggles it
+// (prefer -> avoid -> off). single: horizontal, the centred item is the value (the model).
+function wheel(title, items, { state, onPick, count = () => "", single = false }) {
+  const step = single ? ITEM : ROW;
+  const ul = el("ul", { role: "listbox" });
+  const box = el("div", { className: "wheel" + (single ? " h" : ""), tabIndex: 0 }, ul);
+  box.setAttribute("aria-label", title);
+  const small = el("small");
+  const frame = el("div", { className: "wheel-frame" + (single ? " h" : "") }, box);
+  const root = single ? frame
+    : el("div", {}, el("div", { className: "wheel-head" }, el("span", { textContent: title }), small), frame);
+  const lis = items.map((it, i) => {
+    const li = el("li", { role: "option", title: it.label }, el("span", { textContent: it.label }));
+    li.addEventListener("click", () => { center(i, true); onPick(it.key); refresh(); });
+    ul.append(li);
+    return li;
+  });
+  let cur = -1, settle = 0;
+  const at = () => Math.max(0, Math.min(items.length - 1, Math.round((single ? box.scrollLeft : box.scrollTop) / step)));
+  const mark = () => {
+    const i = at();
+    if (i === cur) return;
+    lis[cur]?.classList.remove("c");
+    lis[i].classList.add("c");
+    cur = i;
   };
-  const block = (name, ts) => [el("div", { className: "grp", textContent: name }), el("div", { className: "tags" }, ...ts.map(btn))];
-  const themesOn = groups.Theme.some((t) => S.tag.has(t));
-  $("tagGroups").replaceChildren(
-    ...block("Genres", groups.Genre),
-    ...block("Demographics", groups.Demographic),
-    el("details", { open: themesOn }, el("summary", { textContent: `Themes (${groups.Theme.length})` }),
-       el("div", { className: "tags" }, ...groups.Theme.map(btn))),
-  );
+  box.addEventListener("scroll", () => {
+    mark(); // cheap: only touches classes when the centred item changes
+    if (single) { clearTimeout(settle); settle = setTimeout(() => onPick(items[at()].key), 140); } // pick where it stops
+  }, { passive: true });
+  const [back, fwd] = single ? ["ArrowLeft", "ArrowRight"] : ["ArrowUp", "ArrowDown"];
+  box.addEventListener("keydown", (e) => {
+    if (e.key === back || e.key === fwd) { e.preventDefault(); center(at() + (e.key === fwd ? 1 : -1), true); }
+    else if (!single && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onPick(items[at()].key); refresh(); }
+  });
+  function center(i, smooth) {
+    i = Math.max(0, Math.min(items.length - 1, i));
+    box.scrollTo({ [single ? "left" : "top"]: i * step, behavior: smooth ? "smooth" : "auto" });
+    if (!smooth) mark();
+  }
+  function refresh() {
+    lis.forEach((li, i) => { li.dataset.state = state(items[i].key); li.setAttribute("aria-selected", !!li.dataset.state); });
+    small.textContent = count();
+  }
+  refresh();
+  return { root, center, refresh, items };
 }
 
+let W = {}; // the wheels, by name
 function renderModels() {
-  $("models").replaceChildren(...D.meta.models.map((m) => {
-    const b = el("button", { type: "button", className: "tag", textContent: m.label, title: m.desc });
-    b.setAttribute("aria-pressed", m.key === S.model);
-    b.addEventListener("click", () => { S.model = m.key; renderModels(); render(); });
-    return b;
-  }));
-  $("modelHint").textContent = D.models.get(S.model).desc;
+  const models = D.meta.models.map((m) => ({ key: m.key, label: m.label }));
+  W.model = wheel("Model", models, {
+    single: true,
+    state: (k) => (k === S.model ? "on" : ""),
+    onPick: (k) => { if (k !== S.model) { S.model = k; render(); } },
+  });
+  $("modelWheel").replaceChildren(W.model.root);
+  W.model.center(models.findIndex((m) => m.key === S.model), false);
+}
+
+function renderWheels() {
+  const tagWheel = (cls, title) => {
+    const items = D.vocab.map((v, t) => ({ key: t, label: v.label, cls: v.class })).filter((x) => x.cls === cls);
+    return wheel(title, items, {
+      state: (t) => S.tag.get(t) || "",
+      onPick: (t) => {
+        const next = cycle[S.tag.get(t) || ""];
+        next ? S.tag.set(t, next) : S.tag.delete(t);
+        renderPicked();
+        render();
+      },
+      count: () => { const n = items.filter((x) => S.tag.has(x.key)).length; return n ? `${n} picked` : ""; },
+    });
+  };
+  W.Genre = tagWheel("Genre", "Genre");
+  W.Demographic = tagWheel("Demographic", "Demographic");
+  W.Theme = tagWheel("Theme", `Theme`);
+  $("wheels").replaceChildren(W.Genre.root, W.Demographic.root, W.Theme.root);
+  // start each wheel on its first picked tag
+  for (const w of [W.Genre, W.Demographic, W.Theme]) w.center(Math.max(0, w.items.findIndex((x) => S.tag.has(x.key))), false);
+  renderPicked();
+}
+
+// everything picked across the tag wheels, as removable chips (a wheel only shows 3 rows)
+function renderPicked() {
+  const chips = [...S.tag].sort((x, y) => (x[1] > y[1]) - (x[1] < y[1])).map(([t, st]) => {
+    const x = el("button", { type: "button", textContent: "×", title: "Remove" });
+    x.addEventListener("click", () => {
+      S.tag.delete(t);
+      W[D.vocab[t].class].refresh();
+      renderPicked();
+      render();
+    });
+    return el("span", { className: "chip " + (st === "prefer" ? "p" : "a") }, D.vocab[t].label, x);
+  });
+  $("picked").replaceChildren(...chips);
+}
+
+function showBoost() {
+  const b = $("boost");
+  b.value = S.boost;
+  b.style.setProperty("--p", (100 * S.boost / Number(b.max)) + "%"); // filled part of the track
+  $("boostOut").value = S.boost.toFixed(S.boost % 1 ? 2 : 1);
 }
 
 // ---------- shareable state in the URL hash
@@ -552,11 +661,10 @@ function readHash(hash) {
     if (p.has("user") && D.uIdx.has(p.get("user"))) S.user = p.get("user");
     S.mode = "user";
   }
-  $("boost").value = S.boost;
-  $("boostOut").value = S.boost.toFixed(S.boost % 1 ? 2 : 1);
+  showBoost();
   for (const b of $("kSeg").children) b.setAttribute("aria-pressed", Number(b.dataset.k) === S.k);
-  renderTags();
   renderModels();
+  renderWheels();
   renderLiked();
   render();
 }
@@ -564,10 +672,7 @@ function readHash(hash) {
 // ---------- parallax background
 (() => {
   const img = $("bgImg");
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    document.querySelectorAll("animateTransform").forEach((a) => a.remove());
-    return;
-  }
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   let queued = false;
   const move = () => {
     queued = false;
@@ -603,7 +708,7 @@ load().then((data) => {
   });
   $("boost").addEventListener("input", (e) => {
     S.boost = Number(e.target.value);
-    $("boostOut").value = S.boost.toFixed(S.boost % 1 ? 2 : 1);
+    showBoost();
     render();
   });
   for (const b of $("kSeg").children) {
