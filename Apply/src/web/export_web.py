@@ -65,7 +65,8 @@ EXAMPLES = [("user_66835", None, ["Romance", "Comedy"], ["Hentai"], 1.0),
 
 def copy_page() -> None:
     DOCS.mkdir(exist_ok=True)
-    shutil.copy(WEB / "index.html", DOCS / "index.html")
+    for f in [WEB / "index.html", *WEB.glob("bg.*")]:  # the page + its background image
+        shutil.copy(f, DOCS / f.name)
     (DOCS / ".nojekyll").touch()  # serve files as-is, no Jekyll build
 
 

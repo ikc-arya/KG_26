@@ -1,6 +1,6 @@
 """Aninext web UI — local preview with live reload (development only; Pages serves docs/).
 
-Serves index.html straight from this folder (so edits show without re-exporting) and the
+Serves index.html + its images straight from this folder (edits show without re-exporting) and the
 exported data from <repo>/docs/data/. A tiny poller injected into the page reloads it
 whenever index.html changes on disk.
 
@@ -32,6 +32,9 @@ class Handler(SimpleHTTPRequestHandler):
             return self._send(str(PAGE.stat().st_mtime_ns).encode(), "text/plain")
         if path in ("/", "/index.html"):
             return self._send(PAGE.read_bytes().replace(b"</body>", RELOAD + b"</body>"), "text/html; charset=utf-8")
+        if path.count("/") == 1 and (WEB / path[1:]).is_file() and path.endswith((".jpg", ".png", ".webp")):
+            ctype = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[path.rsplit(".", 1)[1]]
+            return self._send((WEB / path[1:]).read_bytes(), ctype)  # page assets (bg image) live here
         super().do_GET()
 
     def _send(self, body: bytes, ctype: str) -> None:

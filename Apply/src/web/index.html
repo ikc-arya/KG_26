@@ -8,18 +8,22 @@
 <meta name="color-scheme" content="dark">
 <style>
   :root {
-    --bg: #0d0e12;
-    --surface: #15171d;
-    --surface-2: #1c1f27;
-    --border: #262a34;
-    --text: #e9e7e3;
-    --muted: #8a8f9a;
-    --faint: #5b606b;
+    --bg: #07030a; /* near the image's black, so its edges disappear */
+    --red: #e3122d;
+    --pink: #fc1f91;
+    --pink-glow: rgba(252, 31, 145, .3);
+    --glass: rgba(14, 7, 18, .55);
+    --field: rgba(6, 3, 10, .5);
+    --surface-2: rgba(48, 26, 56, .7);
+    --border: rgba(255, 150, 215, .14);
+    --text: #f1ecf2;
+    --muted: #a99fb3;
+    --faint: #7d7388;
     --hi: #f7f5f2;
     --hi-soft: rgba(255, 255, 255, .08);
-    --accent: #ff9a2e;
-    --avoid: #ef5a5f;
-    --avoid-soft: rgba(239, 90, 95, .13);
+    --accent: #ff2d6f; /* the red/pink blend */
+    --avoid: #8a7f95;
+    --avoid-soft: rgba(138, 127, 149, .1);
     --radius: 12px;
     color-scheme: dark;
   }
@@ -35,9 +39,45 @@
   button, input { font: inherit; color: inherit; }
   .wrap { max-width: 1000px; margin: 0 auto; padding: 40px 16px 56px; }
 
+  /* background: the image (bg.jpg) on a fixed layer, moved slower than the page on scroll;
+     pink/black gradients underneath are the fallback when no image is present */
+  .bg {
+    position: fixed; inset: 0; z-index: -1; overflow: hidden;
+    background:
+      radial-gradient(40% 45% at 82% 62%, rgba(227, 18, 45, .22), transparent 72%),
+      radial-gradient(45% 40% at 10% 8%, rgba(252, 31, 145, .12), transparent 70%),
+      var(--bg);
+  }
+  /* image pinned bottom-right (black background, so it melts into the page); soft masks on its
+     left and top edges so there is no line. It starts 15vh below the fold: the parallax room */
+  .bg-img {
+    position: absolute; right: 0; bottom: -15vh; height: 95vh; aspect-ratio: 1630 / 2880;
+    background: url("bg.jpg") right bottom / cover no-repeat; will-change: transform;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 35%),
+                        linear-gradient(180deg, transparent 0%, #000 22%);
+    -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(90deg, transparent 0%, #000 35%),
+                linear-gradient(180deg, transparent 0%, #000 22%);
+    mask-composite: intersect;
+  }
+  /* frosted glass panels; the edge glows pink and fades into a black shadow */
+  .glass {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 0 38px -6px var(--pink-glow), 0 26px 70px rgba(0, 0, 0, .55);
+  }
+  header, .summary, footer { text-shadow: 0 2px 18px rgba(0, 0, 0, .7); }
+
   header { margin-bottom: 24px; }
   h1 { margin: 0; font-size: 34px; letter-spacing: -.03em; font-weight: 700; }
-  h1 span { color: var(--accent); }
+  h1 span {
+    background: linear-gradient(90deg, var(--red), var(--pink)); -webkit-background-clip: text; background-clip: text;
+    color: transparent; text-shadow: none; filter: drop-shadow(0 2px 14px rgba(255, 45, 111, .35));
+  }
+  .eye { display: block; width: 60px; height: 60px; margin-bottom: 12px; filter: drop-shadow(0 0 14px rgba(227, 18, 45, .55)); }
   .sub { margin: 4px 0 0; color: var(--muted); }
   .tagline { margin: 18px 0 0; font-size: 20px; font-weight: 500; letter-spacing: -.01em; color: var(--hi); }
   .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
@@ -48,24 +88,25 @@
   }
   .ex:hover { color: var(--text); border-color: var(--muted); }
 
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card { padding: 20px; }
   .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
   .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin: 18px 0 8px; }
   .label:first-child { margin-top: 0; }
 
-  .seg { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+  .seg { display: inline-flex; background: var(--field); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
   .seg button { background: none; border: 0; padding: 6px 14px; border-radius: 7px; color: var(--muted); cursor: pointer; }
   .seg button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); }
 
   .combo { position: relative; flex: 1 1 260px; min-width: 0; }
   .combo input {
-    width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    width: 100%; background: var(--field); border: 1px solid var(--border); border-radius: 10px;
     padding: 9px 12px; outline: none;
   }
   .combo input:focus { border-color: var(--accent); }
   .combo ul {
     position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px;
-    list-style: none; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    list-style: none; background: rgba(26, 13, 32, .94); border: 1px solid var(--border); border-radius: 10px;
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
     max-height: 280px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
   }
   .combo li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
@@ -98,7 +139,7 @@
     content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
     background: var(--accent); margin-right: 7px; vertical-align: 2px;
   }
-  .tag[data-state="avoid"] { background: var(--avoid-soft); border-color: var(--avoid); color: var(--avoid); text-decoration: line-through; }
+  .tag[data-state="avoid"] { background: var(--avoid-soft); border: 1px dashed var(--avoid); color: var(--avoid); text-decoration: line-through; }
   details { margin-top: 10px; }
   summary { color: var(--muted); cursor: pointer; font-size: 13px; margin-bottom: 8px; }
   .grp { color: var(--faint); font-size: 12px; margin: 12px 0 6px; }
@@ -111,6 +152,7 @@
   .summary { margin: 28px 0 12px; color: var(--muted); font-size: 14px; min-height: 21px; }
   .summary b { color: var(--text); font-weight: 600; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .col { padding: 20px; min-width: 0; }
   .col h2 { margin: 0 0 2px; font-size: 16px; font-weight: 600; }
   .col .cap { margin: 0 0 12px; color: var(--faint); font-size: 13px; }
   ol { list-style: none; margin: 0; padding: 0; counter-reset: r; }
@@ -125,7 +167,7 @@
   .mini { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px; }
   .mini span { font-size: 11.5px; color: var(--faint); border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; }
   .mini span.p { color: var(--hi); border-color: rgba(255, 255, 255, .45); }
-  .mini span.a { color: var(--avoid); border-color: rgba(239, 90, 95, .5); text-decoration: line-through; }
+  .mini span.a { color: var(--avoid); border-style: dashed; border-color: var(--avoid); text-decoration: line-through; }
   .empty { color: var(--faint); padding: 24px 0; }
 
   footer { margin-top: 48px; color: var(--faint); font-size: 13px; line-height: 1.7; }
@@ -138,15 +180,32 @@
 </style>
 </head>
 <body>
+<div class="bg" aria-hidden="true"><div class="bg-img" id="bgImg"></div></div>
 <div class="wrap">
   <header>
+    <svg class="eye" viewBox="-50 -50 100 100" aria-hidden="true">
+      <defs>
+        <radialGradient id="iris" r="0.6">
+          <stop offset="0" stop-color="#ff3b5c"/><stop offset=".7" stop-color="#d10f28"/><stop offset="1" stop-color="#8e0716"/>
+        </radialGradient>
+        <g id="tomoe"><circle cx="0" cy="-27" r="6.2"/><path d="M0,-33.2 Q15,-33 17.5,-19 Q10,-25.5 0,-20.8 Z"/></g>
+      </defs>
+      <circle r="48" fill="#0b0406"/>
+      <circle r="44" fill="url(#iris)"/>
+      <circle r="27" fill="none" stroke="#0b0406" stroke-opacity=".55" stroke-width="1.6"/>
+      <g fill="#0b0406">
+        <use href="#tomoe"/><use href="#tomoe" transform="rotate(120)"/><use href="#tomoe" transform="rotate(240)"/>
+        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="16s" repeatCount="indefinite"/>
+      </g>
+      <circle r="9.5" fill="#0b0406"/>
+    </svg>
     <h1>Ani<span>next</span></h1>
     <p class="sub">What to watch next: your watch history, scored by a model trained on the knowledge graph, tuned by what you say you like.</p>
     <p class="tagline">Let's find your matches 😉 ...</p>
     <div class="examples" id="examples"><small>Try</small></div>
   </header>
 
-  <section class="card" id="panel" aria-busy="true">
+  <section class="card glass" id="panel" aria-busy="true">
     <div class="label">Start from</div>
     <div class="row">
       <div class="combo" id="whoCombo"></div>
@@ -183,12 +242,12 @@
 
   <p class="summary" id="summary">Loading model…</p>
   <div class="cols">
-    <section class="col">
+    <section class="col glass">
       <h2>From watch history</h2>
       <p class="cap" id="baseCap"></p>
       <ol id="base"></ol>
     </section>
-    <section class="col">
+    <section class="col glass">
       <h2>Tuned to you</h2>
       <p class="cap">+ preferred tags, − avoided tags (KG)</p>
       <ol id="tuned"></ol>
@@ -501,6 +560,26 @@ function readHash(hash) {
   renderLiked();
   render();
 }
+
+// ---------- parallax background
+(() => {
+  const img = $("bgImg");
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    document.querySelectorAll("animateTransform").forEach((a) => a.remove());
+    return;
+  }
+  let queued = false;
+  const move = () => {
+    queued = false;
+    const maxScroll = document.documentElement.scrollHeight - innerHeight;
+    const room = img.offsetTop + img.offsetHeight - innerHeight; // px the layer can move up
+    const f = maxScroll > 0 ? Math.min(0.25, room / maxScroll) : 0;
+    img.style.transform = `translate3d(0, ${-scrollY * f}px, 0)`;
+  };
+  const queue = () => { if (!queued) { queued = true; requestAnimationFrame(move); } };
+  addEventListener("scroll", queue, { passive: true });
+  addEventListener("resize", queue);
+})();
 
 // ---------- wiring
 const EXAMPLES = [
