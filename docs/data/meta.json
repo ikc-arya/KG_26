@@ -1,0 +1,49 @@
+{
+ "default": "lightgcn_k3",
+ "models": [
+  {
+   "key": "popularity",
+   "label": "Popularity",
+   "desc": "Baseline: most-watched first, the same list for everyone.",
+   "kind": "pop",
+   "dim": 0
+  },
+  {
+   "key": "lightgcn_k0",
+   "label": "MF",
+   "desc": "Matrix factorisation (LightGCN with 0 layers): one vector per user and per anime.",
+   "kind": "dot",
+   "dim": 64
+  },
+  {
+   "key": "lightgcn_k3",
+   "label": "LightGCN",
+   "desc": "GNN: 3 layers of neighbour averaging over the user\u2013anime graph.",
+   "kind": "dot",
+   "dim": 64
+  },
+  {
+   "key": "lightgcn_k3_content",
+   "label": "LightGCN + KG",
+   "desc": "GNN over the user\u2013anime graph plus the KG's genre, studio and other content edges.",
+   "kind": "dot",
+   "dim": 64
+  },
+  {
+   "key": "distmult",
+   "label": "DistMult",
+   "desc": "KG embedding: score = user \u00b7 rated \u00b7 anime (element-wise).",
+   "kind": "dot",
+   "dim": 128
+  },
+  {
+   "key": "transe",
+   "label": "TransE",
+   "desc": "KG embedding: user + rated should land near the anime.",
+   "kind": "l2",
+   "dim": 128
+  }
+ ],
+ "n_anime": 8001,
+ "n_users": 5000
+}

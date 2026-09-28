@@ -1,0 +1,183 @@
+@prefix :     <http://kg26.example/anime#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# KG_26 — Apply ontology (real pipeline).
+# Source: anime.csv (MyAnimeList/Jikan content) + rating.csv
+# (user-anime ratings). Keyed by MAL id.
+#
+# This file is the TBox + a small *real-data* ABox sample (3 anime,
+# a few ratings), whose job is to make inference visibly fire
+# (see build_ontology.py). The FULL ABox — ~38k anime + 7.8M rating
+# edges — is generated at the triples stage, not here.
+#
+# Design decisions locked (see Apply/notes.md):
+#  D1: studios/producers/licensors -> ONE :Organization class;
+#      the role is carried by the predicate (animatedBy/producedBy/
+#      licensedBy). Overlapping companies stay a single shared node.
+#  D2: type & source modeled as NODES (controlled-vocab classes),
+#      not literals -> shared hub nodes for embeddings/GNN.
+#  D3: `score` (community aggregate) is a literal :communityScore on
+#      the Anime; an individual user's rating is the reified :Rating
+#      node. Same English word, two different things — never blur.
+#################################################################
+
+<http://kg26.example/anime> a owl:Ontology ;
+    rdfs:comment "KG_26 Apply ontology over anime.csv + rating.csv (MAL-keyed)." .
+
+#################################################################
+# TBox — classes
+#################################################################
+
+:Work         a owl:Class .
+:Anime        a owl:Class ; rdfs:subClassOf :Work .   # Anime ⊑ Work
+
+# D1: one class for every company; role lives on the edge, not the type.
+:Organization a owl:Class .
+
+# Content descriptors (distinct controlled vocabularies).
+:Genre        a owl:Class .
+:Theme        a owl:Class .
+:Demographic  a owl:Class .
+
+# D2: single-valued categoricals promoted to vocab classes (=> hub nodes).
+:AnimeType    a owl:Class .   # individuals: :TV, :Movie, :OVA, ...
+:Source       a owl:Class .   # individuals: :Original, :Manga, ...
+
+# The audience + reified per-user rating (the link-prediction target).
+:Watcher      a owl:Class .
+:Rating       a owl:Class .
+
+#################################################################
+# TBox — object properties (individual -> individual)
+#################################################################
+
+:animeType     a owl:ObjectProperty ; rdfs:domain :Anime ; rdfs:range :AnimeType .
+:hasSource     a owl:ObjectProperty ; rdfs:domain :Anime ; rdfs:range :Source .
+:hasGenre      a owl:ObjectProperty ; rdfs:domain :Anime ; rdfs:range :Genre .
+:hasTheme      a owl:ObjectProperty ; rdfs:domain :Anime ; rdfs:range :Theme .
+:hasDemographic a owl:ObjectProperty ; rdfs:domain :Anime ; rdfs:range :Demographic .
+
+# D1: three roles, one range. Sunrise-as-studio and Sunrise-as-producer
+# are the SAME :Organization node, reached by different predicates.
+:animatedBy    a owl:ObjectProperty ; rdfs:domain :Anime ; rdfs:range :Organization .  # studios
+:producedBy    a owl:ObjectProperty ; rdfs:domain :Anime ; rdfs:range :Organization .  # producers
+:licensedBy    a owl:ObjectProperty ; rdfs:domain :Anime ; rdfs:range :Organization .  # licensors
+
+# Reified rating wiring:  Watcher -rated-> Rating -ratingOf-> Anime.
+:rated         a owl:ObjectProperty ; rdfs:domain :Watcher ; rdfs:range :Rating .
+:ratingOf      a owl:ObjectProperty ; rdfs:domain :Rating ; rdfs:range :Anime .
+
+#################################################################
+# TBox — datatype properties (individual -> literal)
+#################################################################
+
+:title         a owl:DatatypeProperty ; rdfs:domain :Anime  ; rdfs:range xsd:string  .
+:episodeCount  a owl:DatatypeProperty ; rdfs:domain :Anime  ; rdfs:range xsd:integer .
+:releaseYear   a owl:DatatypeProperty ; rdfs:domain :Anime  ; rdfs:range xsd:gYear   .
+:status        a owl:DatatypeProperty ; rdfs:domain :Anime  ; rdfs:range xsd:string  .
+:communityScore a owl:DatatypeProperty ; rdfs:domain :Anime ; rdfs:range xsd:decimal .  # aggregate, NOT a user rating
+:memberCount   a owl:DatatypeProperty ; rdfs:domain :Anime  ; rdfs:range xsd:integer .
+
+# rating.csv value: 1..10, or -1 = "watched but unrated" (implicit feedback,
+# not missing data). Kept as-is; the link-prediction target is the *edge*
+# (Watcher -> ...-> Anime), which exists regardless of the value.
+:ratingValue   a owl:DatatypeProperty ; rdfs:domain :Rating ; rdfs:range xsd:integer .
+
+#################################################################
+# Evolution layer (written by evolve_kg.py into SEPARATE files, so
+# certain and uncertain knowledge never mix):
+#  - inferred.ttl  : logic-derived, certain  (typing, :likes)
+#  - predicted.ttl : ML-derived, scored      (:Prediction nodes)
+#################################################################
+
+# Rule-derived shortcut: a rating >= 8 means the watcher likes the anime.
+:likes         a owl:ObjectProperty ; rdfs:domain :Watcher ; rdfs:range :Anime .
+
+# A prediction binds watcher, anime, score, rank, model and status -> n-ary -> reified,
+# for the same reason a Rating is.
+:Prediction    a owl:Class .
+:PredictionStatus a owl:Class .
+:open          a :PredictionStatus .   # predicted, not (yet) observed
+:confirmed     a :PredictionStatus .   # a later rating made it a fact
+:predictedFor  a owl:ObjectProperty ; rdfs:domain :Prediction ; rdfs:range :Watcher .
+:predictedAnime a owl:ObjectProperty ; rdfs:domain :Prediction ; rdfs:range :Anime .
+:hasStatus     a owl:ObjectProperty ; rdfs:domain :Prediction ; rdfs:range :PredictionStatus .
+:predictionScore a owl:DatatypeProperty ; rdfs:domain :Prediction ; rdfs:range xsd:decimal .
+:predictionRank  a owl:DatatypeProperty ; rdfs:domain :Prediction ; rdfs:range xsd:integer .
+:predictedBy   a owl:DatatypeProperty ; rdfs:domain :Prediction ; rdfs:range xsd:string .
+
+#################################################################
+# DEFERRED (no source in anime.csv yet — do NOT populate now):
+#   :StaffAssignment / :Role / :filledBy / :hasRole  (cast, voice actors)
+#   :sequelOf / :prequelOf                            (relations)
+# Re-enable when a cast/relations source is added (e.g. manami relations
+# JSON, or looked-up facts). Kept out of the active TBox so the schema
+# doesn't promise data that doesn't exist.
+#################################################################
+
+#################################################################
+# ABox — real rows from anime.csv (mal_id 1, 6, 5114) + rating.csv.
+# Types are deliberately left UNSTATED where a domain/range axiom will
+# derive them (see build_ontology.py). Note the shared nodes:
+# :Funimation licenses 1 & 6; :VictorEntertainment produces 1 & 6;
+# :Action spans all three.
+#################################################################
+
+:anime_1
+    :title "Cowboy Bebop" ;
+    :episodeCount 26 ;
+    :releaseYear "1998"^^xsd:gYear ;
+    :status "Finished Airing" ;
+    :communityScore "8.75"^^xsd:decimal ;
+    :memberCount 1983687 ;
+    :animeType :TV ;                # range :AnimeType => :TV a :AnimeType
+    :hasSource :Original ;
+    :animatedBy :Sunrise ;          # range :Organization => :Sunrise a :Organization
+    :producedBy :BandaiVisual , :VictorEntertainment , :AudioPlanningU ;
+    :licensedBy :Funimation ;
+    :hasGenre :Action , :AwardWinning , :SciFi ;
+    :hasTheme :AdultCast , :Space .
+
+:anime_6
+    :title "Trigun" ;
+    :episodeCount 26 ;
+    :releaseYear "1998"^^xsd:gYear ;
+    :status "Finished Airing" ;
+    :communityScore "8.22"^^xsd:decimal ;
+    :memberCount 806006 ;
+    :animeType :TV ;
+    :hasSource :Manga ;
+    :animatedBy :Madhouse ;
+    :producedBy :VictorEntertainment ;     # SHARED with :anime_1
+    :licensedBy :Funimation ;              # SHARED with :anime_1
+    :hasGenre :Action , :Adventure , :SciFi ;
+    :hasTheme :AdultCast ;
+    :hasDemographic :Shounen .
+
+:anime_5114
+    :title "Fullmetal Alchemist: Brotherhood" ;
+    :episodeCount 64 ;
+    :releaseYear "2009"^^xsd:gYear ;
+    :status "Finished Airing" ;
+    :communityScore "9.1"^^xsd:decimal ;
+    :memberCount 3546336 ;
+    :animeType :TV ;
+    :hasSource :Manga ;
+    :animatedBy :Bones ;
+    :producedBy :Aniplex , :SquareEnix , :MainichiBroadcastingSystem , :TechnoSound ;
+    :licensedBy :Funimation , :AniplexOfAmerica ;
+    :hasGenre :Action , :Adventure , :Drama , :Fantasy ;
+    :hasTheme :Military ;
+    :hasDemographic :Shounen .
+
+# Reified ratings (real rows from rating.csv). Types left to inference:
+# domain of :rated => Watcher; domain of :ratingOf / range of :rated => Rating.
+:user_19 :rated :rt_19_1 .   :rt_19_1 :ratingOf :anime_1 ; :ratingValue 10 .
+:user_21 :rated :rt_21_1 .   :rt_21_1 :ratingOf :anime_1 ; :ratingValue 9 .
+:user_13 :rated :rt_13_1 .   :rt_13_1 :ratingOf :anime_1 ; :ratingValue -1 .  # watched, unrated
+:user_5  :rated :rt_5_6 .    :rt_5_6  :ratingOf :anime_6 ; :ratingValue 8 .
+:user_3  :rated :rt_3_5114 . :rt_3_5114 :ratingOf :anime_5114 ; :ratingValue 10 .

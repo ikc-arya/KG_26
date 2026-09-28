@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+
+# Data artifacts — ignore large dumps but keep the folder tracked
+Apply/data/*
+!Apply/data/.gitkeep
+!Apply/data/readme.md
+
+# Course ZIP (built by package_submission.py)
+submission/
+
+# Course material (copyrighted) — local only
+_context/portfolio/
+
+# Claude Code: skills, settings and CLAUDE.md working agreements — local only
+.claude/
+CLAUDE.md
+**/CLAUDE.md

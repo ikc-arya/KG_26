@@ -1,0 +1,22 @@
+# Pinned to the versions the reported results were produced with (Python 3.14.7).
+# `pip install -r requirements.txt` into a fresh venv reproduces every stage.
+
+# Core data
+numpy==2.5.3
+pandas==3.0.6
+matplotlib==3.11.2
+
+# KG creation (ontology + triples stages)
+rdflib==7.6.0
+owlrl==7.6.2       # OWL-RL/RDFS reasoner over rdflib graphs (rdflib has no built-in reasoner)
+
+# Embeddings / GNN — KGE trainer and LightGCN are hand-written on plain torch
+torch==2.14.0
+
+# Notebooks (Apply/eda.ipynb)
+jupyter==1.1.1
+
+# Optional — installed in .venv but not imported by any script; uncomment if used.
+# pykeen==1.11.1           # off-the-shelf KGE library (pulls optuna, scikit-learn, ...)
+# torch-geometric==2.8.0.post1
+# networkx==3.7

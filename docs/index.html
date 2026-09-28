@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aninext</title>
+<meta name="description" content="Anime recommendations from watch history (LightGCN, MF, DistMult, TransE, popularity) tuned by your stated preferences (knowledge graph). All scoring runs in your browser.">
+<meta name="color-scheme" content="dark">
+<style>
+  :root {
+    --bg: #0d0e12;
+    --surface: #15171d;
+    --surface-2: #1c1f27;
+    --border: #262a34;
+    --text: #e9e7e3;
+    --muted: #8a8f9a;
+    --faint: #5b606b;
+    --hi: #f7f5f2;
+    --hi-soft: rgba(255, 255, 255, .08);
+    --accent: #ff9a2e;
+    --avoid: #ef5a5f;
+    --avoid-soft: rgba(239, 90, 95, .13);
+    --radius: 12px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  button, input { font: inherit; color: inherit; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 40px 16px 56px; }
+
+  header { margin-bottom: 24px; }
+  h1 { margin: 0; font-size: 34px; letter-spacing: -.03em; font-weight: 700; }
+  h1 span { color: var(--accent); }
+  .sub { margin: 4px 0 0; color: var(--muted); }
+  .tagline { margin: 18px 0 0; font-size: 20px; font-weight: 500; letter-spacing: -.01em; color: var(--hi); }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
+  .examples small { color: var(--faint); margin-right: 2px; }
+  .ex {
+    background: none; border: 1px dashed var(--border); color: var(--muted);
+    border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 13px;
+  }
+  .ex:hover { color: var(--text); border-color: var(--muted); }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin: 18px 0 8px; }
+  .label:first-child { margin-top: 0; }
+
+  .seg { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+  .seg button { background: none; border: 0; padding: 6px 14px; border-radius: 7px; color: var(--muted); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); }
+
+  .combo { position: relative; flex: 1 1 260px; min-width: 0; }
+  .combo input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 9px 12px; outline: none;
+  }
+  .combo input:focus { border-color: var(--accent); }
+  .combo ul {
+    position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px;
+    list-style: none; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    max-height: 280px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  }
+  .combo li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+  .combo li span:first-child { overflow: hidden; text-overflow: ellipsis; }
+  .combo li .kind { flex: none; color: var(--faint); font-size: 12px; }
+  .combo li[aria-selected="true"] { background: var(--hi-soft); color: var(--hi); }
+  .btn {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 9px 14px; cursor: pointer; color: var(--muted);
+  }
+  .btn:hover { color: var(--text); }
+  .hint { color: var(--faint); font-size: 13px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 13px;
+  }
+  .chip button { background: none; border: 0; color: var(--faint); cursor: pointer; padding: 0 4px; font-size: 15px; line-height: 1; }
+  .chip button:hover { color: var(--text); }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    background: none; border: 1px solid var(--border); border-radius: 999px; padding: 3px 11px;
+    font-size: 13px; color: var(--muted); cursor: pointer; transition: border-color .12s, color .12s, background .12s;
+  }
+  .tag:hover { color: var(--text); border-color: var(--muted); }
+  .tag[data-state="prefer"], .tag[aria-pressed="true"] { background: var(--hi-soft); border-color: var(--hi); color: var(--hi); }
+  .tag[data-state="prefer"]::before {
+    content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); margin-right: 7px; vertical-align: 2px;
+  }
+  .tag[data-state="avoid"] { background: var(--avoid-soft); border-color: var(--avoid); color: var(--avoid); text-decoration: line-through; }
+  details { margin-top: 10px; }
+  summary { color: var(--muted); cursor: pointer; font-size: 13px; margin-bottom: 8px; }
+  .grp { color: var(--faint); font-size: 12px; margin: 12px 0 6px; }
+
+  .controls { display: grid; grid-template-columns: 1fr auto; gap: 16px 28px; align-items: end; margin-top: 4px; }
+  .slider { display: flex; align-items: center; gap: 12px; }
+  .slider input { flex: 1; accent-color: var(--accent); }
+  .slider output { min-width: 3ch; font-variant-numeric: tabular-nums; color: var(--text); }
+
+  .summary { margin: 28px 0 12px; color: var(--muted); font-size: 14px; min-height: 21px; }
+  .summary b { color: var(--text); font-weight: 600; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .col h2 { margin: 0 0 2px; font-size: 16px; font-weight: 600; }
+  .col .cap { margin: 0 0 12px; color: var(--faint); font-size: 13px; }
+  ol { list-style: none; margin: 0; padding: 0; counter-reset: r; }
+  ol li { counter-increment: r; display: grid; grid-template-columns: 26px 1fr; gap: 2px 8px; padding: 10px 0; border-top: 1px solid var(--border); }
+  ol li:first-child { border-top: 0; }
+  ol li::before { content: counter(r); color: var(--faint); font-variant-numeric: tabular-nums; text-align: right; padding-top: 1px; }
+  .t { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; min-width: 0; }
+  .t a { text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .t a:hover { color: var(--accent); }
+  .badge { flex: none; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .badge.moved { color: var(--accent); }
+  .mini { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px; }
+  .mini span { font-size: 11.5px; color: var(--faint); border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; }
+  .mini span.p { color: var(--hi); border-color: rgba(255, 255, 255, .45); }
+  .mini span.a { color: var(--avoid); border-color: rgba(239, 90, 95, .5); text-decoration: line-through; }
+  .empty { color: var(--faint); padding: 24px 0; }
+
+  footer { margin-top: 48px; color: var(--faint); font-size: 13px; line-height: 1.7; }
+  footer a { color: var(--muted); }
+
+  @media (max-width: 720px) {
+    .wrap { padding-top: 28px; }
+    .cols, .controls { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Ani<span>next</span></h1>
+    <p class="sub">What to watch next: your watch history, scored by a model trained on the knowledge graph, tuned by what you say you like.</p>
+    <p class="tagline">Let's find your matches 😉 ...</p>
+    <div class="examples" id="examples"><small>Try</small></div>
+  </header>
+
+  <section class="card" id="panel" aria-busy="true">
+    <div class="label">Start from</div>
+    <div class="row">
+      <div class="combo" id="whoCombo"></div>
+      <button type="button" class="btn" id="randomUser">Random user</button>
+    </div>
+    <div class="chips" id="liked"></div>
+    <p class="hint" id="whoHint"></p>
+
+    <div class="label">Model</div>
+    <div class="tags" id="models"></div>
+    <p class="hint" id="modelHint"></p>
+
+    <div class="label">Preferences <span class="hint" style="text-transform:none;letter-spacing:0">· click once to prefer, twice to avoid</span></div>
+    <div id="tagGroups"></div>
+
+    <div class="controls">
+      <div>
+        <div class="label">Boost per preferred tag</div>
+        <div class="slider">
+          <input type="range" id="boost" min="0" max="3" step="0.25" value="1" aria-label="Boost">
+          <output id="boostOut">1.0</output>
+        </div>
+      </div>
+      <div>
+        <div class="label">Show</div>
+        <div class="seg" role="group" aria-label="Number of results" id="kSeg">
+          <button type="button" data-k="5" aria-pressed="false">5</button>
+          <button type="button" data-k="10" aria-pressed="true">10</button>
+          <button type="button" data-k="20" aria-pressed="false">20</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="summary" id="summary">Loading model…</p>
+  <div class="cols">
+    <section class="col">
+      <h2>From watch history</h2>
+      <p class="cap" id="baseCap"></p>
+      <ol id="base"></ol>
+    </section>
+    <section class="col">
+      <h2>Tuned to you</h2>
+      <p class="cap">+ preferred tags, − avoided tags (KG)</p>
+      <ol id="tuned"></ol>
+    </section>
+  </div>
+
+  <footer id="footer"></footer>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => {
+  const e = Object.assign(document.createElement(tag), props);
+  e.append(...kids);
+  return e;
+};
+
+const S = { mode: "user", user: "user_66835", liked: [], tag: new Map(), boost: 1, k: 10, model: null };
+let D; // data
+
+// ---------- data
+async function load() {
+  const get = (f) => fetch("data/" + f);
+  const [anime, users, meta, K, pop] = await Promise.all([
+    get("anime.json").then((r) => r.json()),
+    get("users.json").then((r) => r.json()),
+    get("meta.json").then((r) => r.json()),
+    get("known.bin").then((r) => r.arrayBuffer()),
+    get("popularity/pop.bin").then((r) => r.arrayBuffer()), // also ranks the title search
+  ]);
+  const uIdx = new Map(users.ids.map((u, i) => [u, i]));
+  const tIdx = new Map(anime.anime.map((a, i) => [a.title.toLowerCase(), i]));
+  const tagSets = anime.anime.map((a) => new Set(a.tags));
+  const models = new Map(meta.models.map((m) => [m.key, m]));
+  return { anime: anime.anime, vocab: anime.tags, users, meta, models, uIdx, tIdx, tagSets,
+           K: new Uint16Array(K), pop: new Float32Array(pop), cache: new Map(), pending: new Map() };
+}
+
+// one model's vectors, fetched the first time it is picked
+function loadModel(key) {
+  if (!D.pending.has(key)) {
+    const m = D.models.get(key);
+    const bin = (f) => fetch(`data/${key}/${f}`).then((r) => r.arrayBuffer()).then((b) => new Float32Array(b));
+    const p = m.kind === "pop"
+      ? bin("pop.bin").then((s) => ({ kind: m.kind, s }))
+      : Promise.all([bin("anime.bin"), bin("user.bin")]).then(([A, Q]) => ({ kind: m.kind, d: m.dim, A, Q }));
+    D.pending.set(key, p.then((v) => D.cache.set(key, v)));
+  }
+  return D.pending.get(key);
+}
+
+// ---------- the model: scores per kind (see export_web.py), then the recommend.rerank formula
+function recommend(M) {
+  const { anime, tagSets } = D;
+  const n = anime.length;
+  const known = new Uint8Array(n);
+  const { A, d } = M;
+  const q = new Float64Array(d || 0); // the user's query vector
+  if (S.mode === "user") {
+    const ui = D.uIdx.get(S.user);
+    if (ui === undefined) return null;
+    const { offsets } = D.users;
+    for (let j = offsets[ui]; j < offsets[ui + 1]; j++) known[D.K[j]] = 1;
+    for (let c = 0; c < d; c++) q[c] = M.Q[ui * d + c];
+  } else {
+    if (!S.liked.length) return null;
+    for (const i of S.liked) {
+      known[i] = 1;
+      for (let c = 0; c < d; c++) q[c] += A[i * d + c] / S.liked.length;
+    }
+  }
+  // ML: dot | -distance | popularity count; known masked, z-score over the rest (population std)
+  const s = new Float64Array(n);
+  let sum = 0, sq = 0, m = 0;
+  for (let i = 0; i < n; i++) {
+    let x = 0;
+    if (M.kind === "pop") x = M.s[i];
+    else if (M.kind === "dot") for (let c = 0; c < d; c++) x += A[i * d + c] * q[c];
+    else { for (let c = 0; c < d; c++) x += (A[i * d + c] - q[c]) ** 2; x = -Math.sqrt(x); }
+    s[i] = x;
+    if (!known[i]) { sum += x; m++; }
+  }
+  const mean = sum / m;
+  for (let i = 0; i < n; i++) if (!known[i]) sq += (s[i] - mean) ** 2;
+  const std = Math.sqrt(sq / m);
+  const prefer = [...S.tag].filter(([, v]) => v === "prefer").map(([t]) => t);
+  const avoid = [...S.tag].filter(([, v]) => v === "avoid").map(([t]) => t);
+  const z = new Float64Array(n), tuned = new Float64Array(n), pref = new Uint8Array(n), avo = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    for (const t of prefer) if (tagSets[i].has(t)) pref[i]++;
+    for (const t of avoid) if (tagSets[i].has(t)) avo[i] = 1;
+    z[i] = known[i] ? -Infinity : (s[i] - mean) / std;
+    tuned[i] = avo[i] ? -Infinity : z[i] + S.boost * pref[i];
+  }
+  const order = (x) => Array.from(x.keys()).filter((i) => x[i] > -Infinity).sort((a, b) => x[b] - x[a]);
+  const zOrder = order(z);
+  const zRank = new Map(zOrder.map((i, r) => [i, r + 1]));
+  return { base: zOrder.slice(0, S.k), tuned: order(tuned).slice(0, S.k), zRank, pref, avo,
+           prefer: new Set(prefer), avoid: new Set(avoid), nKnown: known.reduce((a, b) => a + b, 0) };
+}
+
+// ---------- rendering
+function item(i, R, withRank, pos) {
+  const a = D.anime[i];
+  const link = el("a", { href: `https://myanimelist.net/anime/${a.id}`, target: "_blank", rel: "noopener", textContent: a.title, title: a.title });
+  const top = el("div", { className: "t" }, link);
+  if (withRank) {
+    const r = R.zRank.get(i);
+    top.append(el("span", { className: "badge" + (r > pos ? " moved" : ""), textContent: r === pos ? "same" : `ML #${r}`,
+                            title: "Rank in the ML-only list" }));
+  }
+  const mini = el("div", { className: "mini" });
+  const tags = [...a.tags].sort((x, y) => (R.prefer.has(y) - R.prefer.has(x)) || (R.avoid.has(y) - R.avoid.has(x)));
+  for (const t of tags) {
+    mini.append(el("span", { className: R.prefer.has(t) ? "p" : R.avoid.has(t) ? "a" : "", textContent: D.vocab[t].label }));
+  }
+  return el("li", {}, top, mini);
+}
+
+function render() {
+  saveHash();
+  const model = D.models.get(S.model);
+  $("baseCap").textContent = `ML only: ${model.label} scores`;
+  const M = D.cache.get(S.model);
+  if (!M) {
+    $("summary").textContent = `Loading ${model.label}…`;
+    loadModel(S.model).then(render);
+    return;
+  }
+  const R = recommend(M);
+  const base = $("base"), tuned = $("tuned");
+  if (!R) {
+    const msg = "Search a few anime you liked to get started.";
+    base.replaceChildren(el("p", { className: "empty", textContent: msg }));
+    tuned.replaceChildren();
+    $("summary").textContent = "";
+    $("whoHint").textContent = "";
+    return;
+  }
+  base.replaceChildren(...R.base.map((i, p) => item(i, R, false, p + 1)));
+  tuned.replaceChildren(...R.tuned.map((i, p) => item(i, R, true, p + 1)));
+  $("whoHint").textContent = S.mode === "user"
+    ? `${R.nKnown} anime already in this user's history. They are never recommended.`
+    : model.kind === "pop" ? "Popularity ignores who you are. Your titles are only hidden from the list."
+    : S.model.startsWith("lightgcn") ? "Your vector is the mean of these anime's embeddings. That's LightGCN's own propagation rule, so no retraining is needed."
+    : "Your query is the mean of these anime's vectors, the point that scores them highest. No retraining needed.";
+  const share = (list, m) => Math.round(100 * list.filter((i) => m[i]).length / list.length) + "%";
+  const parts = [];
+  if (R.prefer.size) parts.push(`Preferred tags in the top ${S.k}: <b>${share(R.base, R.pref)}</b> → <b>${share(R.tuned, R.pref)}</b>`);
+  if (R.avoid.size) parts.push(`Avoided: <b>${share(R.base, R.avo)}</b> → <b>${share(R.tuned, R.avo)}</b>`);
+  $("summary").innerHTML = parts.length ? parts.join(" · ") : "Pick some tags to tune the list. With no preferences both columns are the same.";
+}
+
+// ---------- combobox (users or titles)
+function combo(host, { placeholder, source, onPick }) {
+  const input = el("input", { type: "text", placeholder, autocomplete: "off", spellcheck: false });
+  input.setAttribute("aria-label", placeholder);
+  const list = el("ul", { hidden: true, role: "listbox" });
+  host.replaceChildren(input, list);
+  let hits = [], sel = 0;
+  const show = () => {
+    list.replaceChildren(...hits.map((h, j) => {
+      const li = el("li", { role: "option" }, el("span", { textContent: h.label }));
+      if (h.kind) li.append(el("span", { className: "kind", textContent: h.kind }));
+      li.setAttribute("aria-selected", j === sel);
+      li.addEventListener("mousedown", (e) => { e.preventDefault(); pick(j); });
+      return li;
+    }));
+    list.hidden = !hits.length;
+  };
+  const pick = (j) => { if (hits[j]) { onPick(hits[j], input); hits = []; show(); } };
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    hits = q ? source(q) : [];
+    sel = 0;
+    show();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      sel = (sel + (e.key === "ArrowDown" ? 1 : hits.length - 1)) % Math.max(hits.length, 1);
+      show();
+    } else if (e.key === "Enter") { e.preventDefault(); pick(sel); }
+    else if (e.key === "Escape") { hits = []; show(); }
+  });
+  input.addEventListener("blur", () => { hits = []; show(); });
+  return input;
+}
+
+// prefix matches before substring matches; within each, higher `rank` first (e.g. popularity)
+function search(labels, q, limit = 8, rank = null) {
+  const starts = [], has = [];
+  for (let i = 0; i < labels.length; i++) {
+    const l = labels[i].toLowerCase();
+    if (l.startsWith(q)) starts.push(i);
+    else if (l.includes(q)) has.push(i);
+  }
+  if (rank) for (const g of [starts, has]) g.sort((a, b) => rank[b] - rank[a]);
+  return [...starts, ...has].slice(0, limit);
+}
+
+let whoInput;
+// one search box: anime titles (-> "new user" who liked them) and user ids (-> that user's history)
+function setupWho() {
+  const titles = D.anime.map((a) => a.title);
+  whoInput = combo($("whoCombo"), {
+    placeholder: "Search an anime you liked, or a user id…",
+    source: (q) => {
+      const anime = search(titles, q, 7, D.pop).filter((i) => S.mode !== "new" || !S.liked.includes(i))
+        .map((i) => ({ i, label: titles[i], kind: "anime" }));
+      const users = /\d|^user/.test(q) ? search(D.users.ids, q, 3).map((i) => ({ i, label: D.users.ids[i], kind: "user" })) : [];
+      return [...anime, ...users];
+    },
+    onPick: (h, input) => {
+      if (h.kind === "user") { S.mode = "user"; S.user = h.label; }
+      else {
+        if (S.mode !== "new") { S.mode = "new"; S.liked = []; }
+        S.liked.push(h.i);
+      }
+      input.value = "";
+      renderLiked();
+      render();
+    },
+  });
+}
+
+function renderLiked() {
+  const chip = (text, onRemove) => {
+    const x = el("button", { type: "button", textContent: "×", title: "Remove" });
+    x.addEventListener("click", onRemove);
+    return el("span", { className: "chip" }, text, x);
+  };
+  const clear = () => { S.mode = "new"; S.liked = []; renderLiked(); render(); };
+  $("liked").replaceChildren(...(S.mode === "user"
+    ? [chip(S.user, clear)]
+    : S.liked.map((i) => chip(D.anime[i].title, () => { S.liked = S.liked.filter((j) => j !== i); renderLiked(); render(); }))));
+}
+
+function renderTags() {
+  const groups = { Genre: [], Demographic: [], Theme: [] };
+  D.vocab.forEach((v, t) => groups[v.class].push(t));
+  const btn = (t) => {
+    const b = el("button", { type: "button", className: "tag", textContent: D.vocab[t].label });
+    b.dataset.state = S.tag.get(t) || "";
+    b.addEventListener("click", () => {
+      const next = { "": "prefer", prefer: "avoid", avoid: "" }[S.tag.get(t) || ""];
+      next ? S.tag.set(t, next) : S.tag.delete(t);
+      b.dataset.state = next;
+      render();
+    });
+    return b;
+  };
+  const block = (name, ts) => [el("div", { className: "grp", textContent: name }), el("div", { className: "tags" }, ...ts.map(btn))];
+  const themesOn = groups.Theme.some((t) => S.tag.has(t));
+  $("tagGroups").replaceChildren(
+    ...block("Genres", groups.Genre),
+    ...block("Demographics", groups.Demographic),
+    el("details", { open: themesOn }, el("summary", { textContent: `Themes (${groups.Theme.length})` }),
+       el("div", { className: "tags" }, ...groups.Theme.map(btn))),
+  );
+}
+
+function renderModels() {
+  $("models").replaceChildren(...D.meta.models.map((m) => {
+    const b = el("button", { type: "button", className: "tag", textContent: m.label, title: m.desc });
+    b.setAttribute("aria-pressed", m.key === S.model);
+    b.addEventListener("click", () => { S.model = m.key; renderModels(); render(); });
+    return b;
+  }));
+  $("modelHint").textContent = D.models.get(S.model).desc;
+}
+
+// ---------- shareable state in the URL hash
+function saveHash() {
+  const p = new URLSearchParams();
+  if (S.mode === "user") p.set("user", S.user); else p.set("liked", S.liked.map((i) => D.anime[i].id).join(","));
+  const pick = (v) => [...S.tag].filter(([, s]) => s === v).map(([t]) => D.vocab[t].label).join(",");
+  if (pick("prefer")) p.set("prefer", pick("prefer"));
+  if (pick("avoid")) p.set("avoid", pick("avoid"));
+  if (S.boost !== 1) p.set("boost", S.boost);
+  if (S.k !== 10) p.set("k", S.k);
+  if (S.model !== D.meta.default) p.set("model", S.model);
+  history.replaceState(null, "", "#" + p.toString());
+}
+
+function readHash(hash) {
+  const p = new URLSearchParams(hash.replace(/^#/, ""));
+  const byLabel = new Map(D.vocab.map((v, t) => [v.label.toLowerCase(), t]));
+  const byId = new Map(D.anime.map((a, i) => [a.id, i]));
+  S.tag = new Map();
+  for (const [key, v] of [["prefer", "prefer"], ["avoid", "avoid"]]) {
+    for (const l of (p.get(key) || "").split(",")) if (byLabel.has(l.trim().toLowerCase())) S.tag.set(byLabel.get(l.trim().toLowerCase()), v);
+  }
+  S.boost = Number(p.get("boost")) || (p.has("boost") ? 0 : 1);
+  S.k = [5, 10, 20].includes(Number(p.get("k"))) ? Number(p.get("k")) : 10;
+  S.model = D.models.has(p.get("model")) ? p.get("model") : D.meta.default;
+  if (p.has("liked")) {
+    S.liked = p.get("liked").split(",").map((id) => byId.get(id)).filter((i) => i !== undefined);
+    S.mode = "new";
+  } else {
+    if (p.has("user") && D.uIdx.has(p.get("user"))) S.user = p.get("user");
+    S.mode = "user";
+  }
+  $("boost").value = S.boost;
+  $("boostOut").value = S.boost.toFixed(S.boost % 1 ? 2 : 1);
+  for (const b of $("kSeg").children) b.setAttribute("aria-pressed", Number(b.dataset.k) === S.k);
+  renderTags();
+  renderModels();
+  renderLiked();
+  render();
+}
+
+// ---------- wiring
+const EXAMPLES = [
+  ["Liked Cowboy Bebop, Samurai Champloo, Trigun · Sci-Fi", "#liked=1,205,6&prefer=Sci-Fi&boost=0.5"],
+  ["A long-time user · Romance + Comedy, no Hentai", "#user=user_66835&prefer=Romance,Comedy&avoid=Hentai"],
+];
+
+load().then((data) => {
+  D = data;
+  for (const [text, hash] of EXAMPLES) {
+    const b = el("button", { type: "button", className: "ex", textContent: text });
+    b.addEventListener("click", () => readHash(hash));
+    $("examples").append(b);
+  }
+  setupWho();
+  $("randomUser").addEventListener("click", () => {
+    S.mode = "user";
+    S.user = D.users.ids[Math.floor(Math.random() * D.users.ids.length)];
+    renderLiked();
+    render();
+  });
+  $("boost").addEventListener("input", (e) => {
+    S.boost = Number(e.target.value);
+    $("boostOut").value = S.boost.toFixed(S.boost % 1 ? 2 : 1);
+    render();
+  });
+  for (const b of $("kSeg").children) {
+    b.addEventListener("click", () => {
+      S.k = Number(b.dataset.k);
+      for (const o of $("kSeg").children) o.setAttribute("aria-pressed", o === b);
+      render();
+    });
+  }
+  const m = D.meta;
+  $("footer").innerHTML =
+    `Models trained on ${m.n_users.toLocaleString()} MyAnimeList users × ${m.n_anime.toLocaleString()} anime. ` +
+    `Preferences come from the genre, theme and demographic edges of the knowledge graph. All scoring runs in your browser. ` +
+    `<a href="https://github.com/ikc-arya/KG_26">Source on GitHub</a>`;
+  $("panel").setAttribute("aria-busy", "false");
+  readHash(location.hash || EXAMPLES[0][1]);
+}).catch((err) => {
+  $("summary").textContent = "Could not load the model data (" + err.message + "). Serve this folder over HTTP, e.g. python -m http.server -d docs.";
+});
+</script>
+</body>
+</html>
