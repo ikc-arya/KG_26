@@ -26,6 +26,7 @@ Run:  python Apply/src/web/export_web.py              # data + page
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import shutil
 import sys
@@ -47,6 +48,7 @@ from train_gnn import load_final_embeddings  # noqa: E402
 DOCS = WEB.parents[2] / "docs"
 DATA = DOCS / "data"
 DEFAULT = "lightgcn_k3"
+IMG_CDN = "https://cdn.myanimelist.net/images/anime/"  # = CDN in index.html
 
 # key (= checkpoint / results name), label, one-line description shown in the UI
 MODELS = [
@@ -61,6 +63,21 @@ MODELS = [
 # the two README examples: (user, liked, prefer, avoid, boost)
 EXAMPLES = [("user_66835", None, ["Romance", "Comedy"], ["Hentai"], 1.0),
             (None, ["Cowboy Bebop", "Samurai Champloo", "Trigun"], ["SciFi"], [], 0.5)]
+
+
+def image_paths() -> dict[str, str]:
+    """MAL id -> cover image path, e.g. '4/19644' for .../images/anime/4/19644.jpg.
+
+    Display only: the image URL comes straight from anime.csv, it is not in the KG (the
+    anime IRIs do not resolve). The page adds the CDN prefix and .jpg back, which keeps
+    anime.json small. MAL's placeholder icon (no cover) is left out."""
+    out: dict[str, str] = {}
+    with (WEB.parents[1] / "data" / "anime.csv").open(encoding="utf-8", newline="") as f:
+        for r in csv.DictReader(f):  # first row per id wins, as in build_triples.load_anime
+            url = r["image_jpg_url"]
+            if r["mal_id"] not in out and url.startswith(IMG_CDN) and url.endswith(".jpg"):
+                out[r["mal_id"]] = url[len(IMG_CDN):-len(".jpg")]
+    return out
 
 
 def copy_page() -> None:
@@ -149,10 +166,11 @@ def export() -> None:
         shutil.rmtree(DATA)  # pure build output of this script
     DATA.mkdir(parents=True)
     np.concatenate([sorted(known[u]) for u in users]).astype("<u2").tofile(DATA / "known.bin")
+    img = image_paths()
     (DATA / "anime.json").write_text(json.dumps({
         "tags": vocab,
-        "anime": [{"id": a.removeprefix("anime_"), "title": title.get(a, a), "tags": sorted(tags[i])}
-                  for i, a in enumerate(cands)],
+        "anime": [{"id": (mid := a.removeprefix("anime_")), "title": title.get(a, a), "img": img.get(mid, ""),
+                   "tags": sorted(tags[i])} for i, a in enumerate(cands)],
     }, ensure_ascii=False, separators=(",", ":")))
     (DATA / "users.json").write_text(json.dumps({"ids": users, "offsets": offsets}, separators=(",", ":")))
 

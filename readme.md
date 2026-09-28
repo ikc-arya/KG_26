@@ -23,6 +23,17 @@ Build a knowledge graph from MyAnimeList data (ontology → RDF triples), embed 
 | `Learn/01_ontology` … `Learn/04_evolution` | Concept notes + one trials notebook per stage (toy experiments behind the design choices) |
 | `_context/glossary.md` | Terms used throughout |
 
+## Portfolio parts
+
+The course submission groups the same files by portfolio part. Each part keeps these Learn/Apply paths and runs on its own.
+
+| Part | Files |
+|---|---|
+| 2 - construction | `Apply/src/build_ontology.py`, `ontology.ttl`, `build_triples.py`, `validate_triples.py`, `Apply/eda.ipynb`, `Learn/02_triples/triples_trials.ipynb`, provenance, `Apply/data/anime.csv` |
+| 3 - ML | `Apply/src/make_split.py`, `recsys_eval.py`, `train_kge.py`, `train_gnn.py`, `probe_embeddings.py`, `representation_examples.py`, `recommend.py`, `evolve_kg.py` (predictions), `Apply/src/web/` + `docs/` (Aninext), `Apply/embeddings_trials.ipynb`, `gnn_trials.ipynb`, `Learn/03` and `Learn/04` trials, the shipped split, results and model checkpoints |
+| 4 - logic | `Apply/src/logic_queries.py`, `evolve_kg.py` (rules), `ontology.ttl`, `build_ontology.py`, `Learn/01_ontology/ontology_trials.ipynb`, hand-built `anime.ttl` + `scratch.py` |
+| 5 - reflection | `Apply/notes.md`, `Learn/*/notes.md`, `_context/glossary.md` |
+
 ## Setup
 
 Python 3.14 (tested with 3.14.7).
