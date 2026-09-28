@@ -27,7 +27,7 @@ Apply/data/*
 submission/
 
 # Course material (copyrighted) — local only
-_context/portfolio/
+_context/
 
 # Claude Code: skills, settings and CLAUDE.md working agreements — local only
 .claude/
@@ -36,10 +36,8 @@ CLAUDE.md
 
 .obsidian/
 
-_context/
-
 Learn/
 
-for_portfolio.md
+/for_portfolio.md
 
 
