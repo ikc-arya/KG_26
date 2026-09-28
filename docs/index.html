@@ -369,8 +369,12 @@ const S = { mode: "user", user: "user_66835", liked: [], tag: new Map(), boost: 
 let D; // data
 
 // ---------- data
+// revalidate data with the server on every load (a 304 when unchanged): Pages caches files for
+// 10 min, and a fresh page on stale data breaks silently (e.g. no cover images after an export)
+const fresh = (url) => fetch(url, { cache: "no-cache" });
+
 async function load() {
-  const get = (f) => fetch("data/" + f);
+  const get = (f) => fresh("data/" + f);
   const [anime, users, meta, K, pop] = await Promise.all([
     get("anime.json").then((r) => r.json()),
     get("users.json").then((r) => r.json()),
@@ -390,7 +394,7 @@ async function load() {
 function loadModel(key) {
   if (!D.pending.has(key)) {
     const m = D.models.get(key);
-    const bin = (f) => fetch(`data/${key}/${f}`).then((r) => r.arrayBuffer()).then((b) => new Float32Array(b));
+    const bin = (f) => fresh(`data/${key}/${f}`).then((r) => r.arrayBuffer()).then((b) => new Float32Array(b));
     const p = m.kind === "pop"
       ? bin("pop.bin").then((s) => ({ kind: m.kind, s }))
       : Promise.all([bin("anime.bin"), bin("user.bin")]).then(([A, Q]) => ({ kind: m.kind, d: m.dim, A, Q }));
@@ -801,7 +805,7 @@ const EXAMPLES = [
 
 const Rows = { base: shelf($("base")), tuned: shelf($("tuned")) };
 let resizeT = 0;
-addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(cutTags, 150); }); // tile size changes at the breakpoint
+addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => cutTags(), 150); }); // tile size changes at the breakpoint
 
 load().then((data) => {
   D = data;
